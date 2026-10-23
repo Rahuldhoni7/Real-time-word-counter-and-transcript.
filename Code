@@ -1,0 +1,237 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Real-time Speech and Word Counter</title>
+  <style>
+    *{
+        background-color: black;
+    }
+    body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: gray;
+  padding: 30px 20px;
+  max-width: 700px;
+  margin: 40px auto;
+  border-radius: 15px;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+  color: yellow;
+}
+
+h1 {
+  color: #e0e8ff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+  font-weight: 900;
+  font-size: 2.5rem;
+  margin-bottom: 30px;
+  text-align: center;
+  letter-spacing: 1.2px;
+  background-color: gray;
+}
+
+#transcript {
+  width: 650px;
+  height: 180px;
+  font-size: 1.25rem;
+  padding: 15px 20px;
+  border: 3px solid lime;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: yellow;
+  resize: none;
+  box-shadow: inset 0 2px 8px rgba(0, 255, 255, 0.2);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+#transcript:focus {
+  outline: none;
+  border-color:lime;
+  box-shadow: 0 0 10px 3px lime;
+  background: rgba(255, 255, 255, 0.15);
+  
+}
+
+#wordCount {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: black;
+  background-color: grey;
+  margin-top: 10px;
+  text-align: right;
+  letter-spacing: 0.5px;
+}
+
+#wordFreq {
+  margin-top: 20px;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 15px 20px;
+  border-radius: 12px;
+  max-height: 220px;
+  overflow-y: auto;
+  font-family: 'Courier New', Courier, monospace;
+  white-space: pre-wrap;
+  color: black;
+  box-shadow: inset 0 3px 10px rgba(0, 255, 255, 0.2);
+  border: 1.5px solid lime;
+}
+
+#startBtn {
+  display: block;
+  margin: 30px auto 0 auto;
+  padding: 14px 30px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  background: linear-gradient(45deg, #045e04, #055205);
+  border: none;
+  border-radius: 30px;
+  color: white;
+  font-family: 'Georgia', serif;
+  font-weight: bold;
+  box-shadow: 0 6px 15px rgba(51, 223, 51, 0.6);
+  transition: background 0.4s ease, box-shadow 0.4s ease, color 0.4s ease;
+  user-select: none;
+}
+
+#startBtn:hover {
+  background: linear-gradient(45deg, #00ff00, #009900);
+  color: black;
+  box-shadow: 0 8px 20px rgba(0, 255, 0, 0.8);
+}
+
+#startBtn:active {
+  transform: scale(0.97);
+   box-shadow: 2px 2px 2px 2px yellow;
+  color: black;
+}
+#startBtn::after{
+    color: black;
+    
+}
+#w{
+    background-color: gray;
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: 20px 15px;
+    max-width: 100%;
+    margin: 20px auto;
+  }
+  h1 {
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+  }
+  #transcript {
+    height: 140px;
+    font-size: 1rem;
+    padding: 12px 15px;
+  }
+  #startBtn {
+    font-size: 1rem;
+    padding: 12px 25px;
+  }
+}
+
+  </style>
+</head>
+<body>
+
+  <h1>Real-time Speech and Word Counter</h1>
+  <textarea id="transcript" placeholder="Speech will appear here..." readonly></textarea>
+  <div id="w">Word Count: <span id="wordCount">0</span></div>
+  <div id="wordFreq"></div>
+  <button id="startBtn">Start Listening</button>
+
+  <script>
+    const transcriptArea = document.getElementById('transcript');
+    const wordCountSpan = document.getElementById('wordCount');
+    const wordFreqDiv = document.getElementById('wordFreq');
+    const startBtn = document.getElementById('startBtn');
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("Sorry, your browser doesn't support Speech Recognition.");
+      startBtn.disabled = true;
+    }
+
+    let recognition;
+    let isListening = false;
+
+    // Keep track of word counts globally
+    const wordCounts = {};
+
+    startBtn.onclick = () => {
+      if (isListening) {
+        recognition.stop();
+        startBtn.textContent = "Start Listening";
+        isListening = false;
+      } else {
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        recognition.onresult = (event) => {
+          let interimTranscript = '';
+          let finalTranscript = '';
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript + ' ';
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+
+          // Update transcript textarea
+          transcriptArea.value = finalTranscript + interimTranscript;
+
+          // Update word counts only with finalized words
+          if (finalTranscript.trim().length > 0) {
+            // Split finalTranscript into words, normalize to lowercase
+            const newWords = finalTranscript.trim().toLowerCase().split(/\s+/).filter(w => w.length > 0);
+
+            // Count words incrementally
+            newWords.forEach(word => {
+              // Remove punctuation from word (optional)
+              const cleanWord = word.replace(/[.,?!;:'"-]/g, '');
+              if (cleanWord.length === 0) return;
+              wordCounts[cleanWord] = (wordCounts[cleanWord] || 0) + 1;
+            });
+          }
+
+          // Calculate total word count from transcriptArea (including interim)
+          const allWords = transcriptArea.value.trim().split(/\s+/).filter(w => w.length > 0);
+          wordCountSpan.textContent = allWords.length;
+
+          // Display frequencies sorted by count desc, then alphabetically
+          const sortedWords = Object.entries(wordCounts)
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+          let freqText = 'Word Frequencies:\n';
+          sortedWords.forEach(([word, count]) => {
+            freqText += `${word}: ${count}\n`;
+          });
+
+          wordFreqDiv.textContent = freqText;
+        };
+
+        recognition.onerror = (event) => {
+          console.error('Speech recognition error', event.error);
+        };
+
+        recognition.start();
+        startBtn.textContent = "Stop Listening";
+        isListening = true;
+      }
+    };
+  </script>
+
+</body>
+</html>
+
+Show quoted text
